@@ -1,5 +1,6 @@
 from mrjob.job import MRJob
 from mrjob.step import MRStep
+from mrjob.protocol import RawValueProtocol
 import json
 import operator
 import os
@@ -17,6 +18,8 @@ with open("stopwords.txt") as stopwords_file:
     
 
 class Chi(MRJob):
+    
+    OUTPUT_PROTOCOL = RawValueProtocol
 
     def steps(self):
         return [
@@ -25,8 +28,7 @@ class Chi(MRJob):
             MRStep (reducer= self.reducer2),
             MRStep (mapper= self.mapper2),
             MRStep (reducer= self.reducer3),
-            MRStep (mapper= self.mapper4),
-            MRStep(reducer=self.reducer_final_terms)
+            MRStep (mapper= self.mapper4)
         ]
     
     def mapper(self, _, line):
@@ -86,27 +88,14 @@ class Chi(MRJob):
             bottom = (A + B) * (A + C) * (B + D) * (C + D)
             final_dict[key] = top / bottom
 
-    # Emit all terms under a special key for final sorting
-        for term in final_dict.keys():
-            yield "zzzzzAll Terms", term
-    
     # Emit category results with chi-squared values
-        final_dict = dict(sorted(final_dict.items(), key=operator.itemgetter(1), reverse=True)[:75])
-        yield category, final_dict
+        sorted_terms = sorted(final_dict.items(), key=operator.itemgetter(1), reverse=True)[:75]
+        
+        # Construct the output string in the desired format with category enclosed in <>
+        result = f"<{category}> " + " ".join(f"{term}:{value}" for term, value in sorted_terms)
+        
+        yield None, result
 
-    
-    
-    def reducer_final_terms(self, key, values):
-        if key == "zzzzzAll Terms":
-        # Handling all terms for final output
-            unique_terms = sorted(set(values))
-            yield "All Terms", unique_terms
-        else:
-        # Handling category results
-            final_dicts = list(values)  # Assuming values are the final_dicts from mapper4
-        # You might want to process or simply pass through these dictionaries
-            for final_dict in final_dicts:
-                yield key, final_dict
 
         
     
