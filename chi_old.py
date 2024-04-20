@@ -41,7 +41,7 @@ class Chi(MRJob):
             # case-fold the word
             term = term.lower()
             if term in STOPWORDS: # skip stopwords
-                return
+                continue
                 
             yield (category,term), 1 # to count how many TERMS we have => gives us A
             

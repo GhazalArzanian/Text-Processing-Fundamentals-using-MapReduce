@@ -5,6 +5,7 @@ import json
 import operator
 import os
 import re
+import math
 
 
 # Load stopwords
@@ -46,7 +47,7 @@ class Chi(MRJob):
             # case-fold the word
             term = term.lower()
             if term in STOPWORDS: # skip stopwords
-                return
+                continue
                 
             yield (category,term), 1 # to count how many TERMS we have => gives us A
             
@@ -86,10 +87,13 @@ class Chi(MRJob):
             D = N - A - B - C
             top = N * (A * D - B * C) ** 2
             bottom = (A + B) * (A + C) * (B + D) * (C + D)
-            final_dict[key] = top / bottom
+            if bottom == 0 or math.isinf(bottom) or math.isnan(bottom) or top == 0 or math.isinf(top) or math.isnan(top):
+                final_dict[key] = 0
+            else:
+                final_dict[key] = top / bottom
 
     # Emit category results with chi-squared values
-        sorted_terms = sorted(final_dict.items(), key=operator.itemgetter(1), reverse=True)[:75]
+        sorted_terms = sorted(final_dict.items(), key=operator.itemgetter(1), reverse=True)[0:75]
         
         # Construct the output string in the desired format with category enclosed in <>
         result = f"<{category}> " + " ".join(f"{term}:{value}" for term, value in sorted_terms)
