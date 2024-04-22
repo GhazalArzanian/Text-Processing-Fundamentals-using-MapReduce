@@ -4,5 +4,7 @@ The goal of this project is to prepare text data for text classification tasks b
 
 
 Python 3.x
+
 mrjob library
+
 Access to a Hadoop cluster
