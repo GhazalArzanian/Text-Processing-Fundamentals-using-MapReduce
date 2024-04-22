@@ -2,42 +2,49 @@ from mrjob.job import MRJob
 from mrjob.step import MRStep
 import json
 import re
-import csv
-import logging
-import sys
 from mrjob.protocol import RawValueProtocol
 
 class TermDistribution(MRJob):
     
     OUTPUT_PROTOCOL = RawValueProtocol
     
-    def __init__(self, *args, **kwargs):
-        super(TermDistribution, self).__init__(*args, **kwargs)
+    def configure_args(self):
+        super(TermDistribution, self).configure_args()
+        self.add_file_arg('--stopwords') # here we can load the files for processing
+        self.add_file_arg( '--categories')
 
-        self.stopwords=set() #unique set for the stopwords
-        self.category_distribution={}
-        #reading in the stopword file. Right now works only for local testing. 
-        #TODO: making it run in the cluster
-        with open("stopwords.txt") as stopwords_file:
-            for line in stopwords_file:
-                self.stopwords.add(line.strip().lower())
+    def mapper3_init(self):
+        self.category_distribution = self.load_category_distribution()
+        self.total_docs=0
+        for key, value in self.category_distribution.items():
+            self.total_docs+=int(value)
 
-    def init_category_distribution(self):
-        with open("categories.txt") as stopwords_file:
+    def mapper1_init(self):
+        self.stopwords = self.load_stopwords()
+
+    def load_stopwords(self):
+        stopwords=set()
+        with open(self.options.stopwords, 'r') as stopwords_file:
             for line in stopwords_file:
+                stopwords.add(line.strip().lower())
+        return stopwords
+    
+    def load_category_distribution(self):
+        cat_dis={}
+        with open(self.options.categories, 'r') as categories_file:
+            for line in categories_file:
                 key, value=line.split()
                 cleaned_key=key.strip('"')
-                self.category_distribution[cleaned_key]=int(value)
-        
+                cat_dis[cleaned_key]=int(value)
+            
+        return cat_dis        
 
     def steps (self):
         return [
-            MRStep( mapper=self.mapper_prep,
+            MRStep( mapper_init=self.mapper1_init,
+                    mapper=self.mapper_prep,
                     combiner=self.combiner_sum,
                     reducer=self.reducer_sum),
-            MRStep( mapper=self.mapper2,
-                    combiner= self.combiner2,
-                    reducer=self.reducer2),
             MRStep( mapper_init=self.mapper3_init,
                     mapper=self.mapper3,
                     combiner= self.combiner3,
@@ -62,22 +69,18 @@ class TermDistribution(MRJob):
         #yielding back each word from the list
         #for word in unique_words:
         for word in unique_words:
-            yield (word, category), 1
+            yield word, (category, 1)
 
-    def combiner_sum(self, keys, values): 
-        yield keys, sum(values)
+    def combiner_sum(self, key, values): 
+        combined_dictionary={}
+        for value in values:
+            category, count=value
+            if category not in combined_dictionary: 
+                combined_dictionary[category]=0
+            combined_dictionary[category]+=count
+        yield key, combined_dictionary  
 
-    def reducer_sum(self, keys, values):
-        yield keys[0], (keys[1], sum(values))
-
-    def mapper2(self, keys, values):
-
-        term=keys
-        category, count=values
-        
-        yield term, {category: count}
-
-    def combiner2 (self, key, values):
+    def reducer_sum(self, key, values):
         combined_dictionary={}
         for value in values:
             for category, count in value.items():
@@ -85,21 +88,6 @@ class TermDistribution(MRJob):
                     combined_dictionary[category]=0
                 combined_dictionary[category]+=count
         yield key, combined_dictionary
-
-    def reducer2(self, key, values):
-        combined_dictionary={}
-        for value in values:
-            for category, count in value.items():
-                if category not in combined_dictionary: 
-                    combined_dictionary[category]=0
-                combined_dictionary[category]+=count
-        yield key, combined_dictionary
-
-    def mapper3_init(self):
-        self.init_category_distribution()
-        self.total_docs=0
-        for key, value in self.category_distribution.items():
-            self.total_docs+=int(value)
 
     def mapper3(self, key, values):
         cat_dist=self.category_distribution.copy()
@@ -118,15 +106,6 @@ class TermDistribution(MRJob):
             N=self.total_docs
             A=count #number of documents in category which contain term
             B=total_term_count-A #number of documents not in category which contain term
-
-            # with open(r'C:\Users\annal\Documents\GitHub\Text-Processing-Fundamentals-using-MapReduce\data.json', 'w') as json_file:
-            #     json.dump(cat_dist, json_file, indent=4)
-
-            # with open(r'C:\Users\annal\Documents\GitHub\Text-Processing-Fundamentals-using-MapReduce\dictionary_keys.txt', 'w') as file:
-            #     file.write(category+'\n')
-            #     for key in cat_dist.keys():
-            #         file.write(key + '\n')
-
             C = cat_dist[category] - A  # number of documents in category which does not contain term
             D = N - cat_dist[category] - B  # number of documents not in category which does not contain term
             if ((A + B) * (A + C) * (B + D) * (C + D)) == 0:
