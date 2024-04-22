@@ -13,7 +13,7 @@ class TermDistribution(MRJob):
         self.add_file_arg('--stopwords') # here we can load the files for processing
         self.add_file_arg( '--categories')
 
-    def mapper3_init(self):
+    def mapper2_init(self):
         self.category_distribution = self.load_category_distribution()
         self.total_docs=0
         for key, value in self.category_distribution.items():
@@ -45,10 +45,10 @@ class TermDistribution(MRJob):
                     mapper=self.mapper_prep,
                     combiner=self.combiner_sum,
                     reducer=self.reducer_sum),
-            MRStep( mapper_init=self.mapper3_init,
-                    mapper=self.mapper3,
-                    combiner= self.combiner3,
-                    reducer=self.reducer3)
+            MRStep( mapper_init=self.mapper2_init,
+                    mapper=self.mapper2,
+                    combiner= self.combiner2,
+                    reducer=self.reducer2)
        ]
         
     def mapper_prep(self, _, line):
@@ -89,9 +89,8 @@ class TermDistribution(MRJob):
                 combined_dictionary[category]+=count
         yield key, combined_dictionary
 
-    def mapper3(self, key, values):
+    def mapper2(self, key, values):
         cat_dist=self.category_distribution.copy()
-        values_dict = {val[0]:  val[1] for val in values}
         #needed: 
         # number of documents -from txt
         # number of documents in category - from txt
@@ -100,8 +99,8 @@ class TermDistribution(MRJob):
 
         # # gots (term, category) pairs with value
         total_term_count=0
-        total_term_count = sum(values_dict.values())
-        for category, count in values_dict.items():
+        total_term_count = sum(values.values())
+        for category, count in values.items():
             N=self.total_docs
             A=count #number of documents in category which contain term
             B=total_term_count-A #number of documents not in category which contain term
