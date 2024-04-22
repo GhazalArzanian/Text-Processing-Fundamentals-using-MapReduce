@@ -91,6 +91,7 @@ class TermDistribution(MRJob):
 
     def mapper3(self, key, values):
         cat_dist=self.category_distribution.copy()
+        values_dict = {val[0]:  val[1] for val in values}
         #needed: 
         # number of documents -from txt
         # number of documents in category - from txt
@@ -99,40 +100,35 @@ class TermDistribution(MRJob):
 
         # # gots (term, category) pairs with value
         total_term_count=0
-        for category, count in values.items():
-            total_term_count+=count
-
-        for category, count in values.items():
+        total_term_count = sum(values_dict.values())
+        for category, count in values_dict.items():
             N=self.total_docs
             A=count #number of documents in category which contain term
             B=total_term_count-A #number of documents not in category which contain term
             C = cat_dist[category] - A  # number of documents in category which does not contain term
-            D = N - cat_dist[category] - B  # number of documents not in category which does not contain term
+            D = N - A - C- B  # number of documents not in category which does not contain term
             if ((A + B) * (A + C) * (B + D) * (C + D)) == 0:
                 chi = 0
             else:
                 chi = (N * (A * D - B * C) * (A * D - B * C)) / ((A + B) * (A + C) * (B + D) * (C + D))
             yield category, {key: chi}
-                    # self.logger.warning(f"Category {category} not found in distribution.")
-
-            # yield category, {key: chi} 
-
-    def combiner3(self, key, values):
+            
+    def combiner2(self, key, values):
         combined_dictionary={}
         for value in values:
-            for category, count in value.items():
-                if category not in combined_dictionary: 
-                    combined_dictionary[category]=0
-                combined_dictionary[category]+=count
+            for term, count in value.items():
+                if term not in combined_dictionary: 
+                    combined_dictionary[term]=0
+                combined_dictionary[term]+=count
         yield key, combined_dictionary
 
-    def reducer3(self, key, values):
+    def reducer2(self, key, values):
         combined_dictionary={}
         for value in values:
-            for category, count in value.items():
-                if category not in combined_dictionary: 
-                    combined_dictionary[category]=0
-                combined_dictionary[category]+=count
+            for term, count in value.items():
+                if term not in combined_dictionary: 
+                    combined_dictionary[term]=0
+                combined_dictionary[term]+=count
                 
         sorted_chi_values = sorted(combined_dictionary.items(), key=lambda x: x[1], reverse=True)[:75]
         
@@ -142,4 +138,3 @@ class TermDistribution(MRJob):
 
 if __name__ == '__main__':
     TermDistribution.run()
-
