@@ -3,6 +3,7 @@
 from mrjob.job import MRJob
 from mrjob.step import MRStep
 from mrjob.protocol import RawValueProtocol
+import json
 
 class append_terms(MRJob):
     OUTPUT_PROTOCOL = RawValueProtocol  
