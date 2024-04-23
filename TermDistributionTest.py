@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from mrjob.job import MRJob
 from mrjob.step import MRStep
 import json
@@ -52,9 +54,13 @@ class TermDistribution(MRJob):
        ]
         
     def mapper_prep(self, _, line):
-        record = json.loads(line) #loading the json
-        category=record.get('category', '') 
-        text=record.get('reviewText', '')
+        try:
+
+            record = json.loads(line) #loading the json
+            category=record.get('category', '') 
+            text=record.get('reviewText', '')
+        except json.JSONDecodeError:
+            return
 
         text_split=re.findall('[A-Za-z]+', text) #only keeping those words which contain only letters from the English alphabet
 
@@ -73,12 +79,16 @@ class TermDistribution(MRJob):
 
     def combiner_sum(self, key, values): 
         combined_dictionary={}
+        
         for value in values:
-            category, count=value
-            if category not in combined_dictionary: 
-                combined_dictionary[category]=0
-            combined_dictionary[category]+=count
-        yield key, combined_dictionary  
+            try:
+                category, count=value
+                if category not in combined_dictionary: 
+                    combined_dictionary[category]=0
+                combined_dictionary[category]+=int(count)
+            except ValueError or TypeError:
+                pass
+        yield key, combined_dictionary
 
     def reducer_sum(self, key, values):
         combined_dictionary={}
