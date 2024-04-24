@@ -65,19 +65,22 @@ class TermDistribution(MRJob):
             yield (word, category), 1
 
     def combiner_sum(self, keys, values): 
+        #summing up the appearances for term locally
         yield keys, sum(values)
 
     def reducer_sum(self, keys, values):
+        #summing up the appearances for term globally
         yield keys[0], (keys[1], sum(values))
 
     def mapper2(self, keys, values):
-
+        #converting into dictionary
         term=keys
         category, count=values
         
         yield term, {category: count}
 
     def combiner2 (self, key, values):
+        #extending dictionary locally
         combined_dictionary={}
         for value in values:
             for category, count in value.items():
@@ -87,6 +90,7 @@ class TermDistribution(MRJob):
         yield key, combined_dictionary
 
     def reducer2(self, key, values):
+        #extending dictionary globally
         combined_dictionary={}
         for value in values:
             for category, count in value.items():
@@ -96,6 +100,7 @@ class TermDistribution(MRJob):
         yield key, combined_dictionary
 
     def mapper3_init(self):
+        #initializing the category_distribution dictionary and the total number of documents
         self.init_category_distribution()
         self.total_docs=0
         for key, value in self.category_distribution.items():
@@ -109,7 +114,7 @@ class TermDistribution(MRJob):
         # all appearances of term - from different grouping we can get that
         # number of docs in category which contain term - we can get it from where!!
 
-        # # gots (term, category) pairs with value
+        #number of total appearances of term
         total_term_count=0
         for category, count in values.items():
             total_term_count+=count
@@ -118,14 +123,6 @@ class TermDistribution(MRJob):
             N=self.total_docs
             A=count #number of documents in category which contain term
             B=total_term_count-A #number of documents not in category which contain term
-
-            # with open(r'C:\Users\annal\Documents\GitHub\Text-Processing-Fundamentals-using-MapReduce\data.json', 'w') as json_file:
-            #     json.dump(cat_dist, json_file, indent=4)
-
-            # with open(r'C:\Users\annal\Documents\GitHub\Text-Processing-Fundamentals-using-MapReduce\dictionary_keys.txt', 'w') as file:
-            #     file.write(category+'\n')
-            #     for key in cat_dist.keys():
-            #         file.write(key + '\n')
 
             C = cat_dist[category] - A  # number of documents in category which does not contain term
             D = N - cat_dist[category] - B  # number of documents not in category which does not contain term
@@ -139,6 +136,8 @@ class TermDistribution(MRJob):
             # yield category, {key: chi} 
 
     def combiner3(self, key, values):
+        #extending dictionary locally
+
         combined_dictionary={}
         for value in values:
             for category, count in value.items():
@@ -148,6 +147,8 @@ class TermDistribution(MRJob):
         yield key, combined_dictionary
 
     def reducer3(self, key, values):
+        #extending dictionary globally
+
         combined_dictionary={}
         for value in values:
             for category, count in value.items():
